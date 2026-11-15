@@ -429,7 +429,7 @@ function openCfg(){openId="__cfg";$("#scrim").hidden=false;const d=$("#drawer");
   <div><h4>Contraseña para entrar desde cualquier navegador</h4>
   <p class="note">${acceso?"Ya hay una contraseña activa. Puedes crear una nueva; la anterior deja de servir cuando se active la nueva.":"Todavía no hay contraseña. Crea una para no tener que pegar la llave de GitHub en cada navegador."}
   Usa una frase larga que no uses en otro lado (por ejemplo, cuatro palabras al azar). Si la olvidas, se crea otra con la llave de GitHub.</p>
-  <form class="addform" id="pwForm"><label>Nueva contraseña<input id="p1" type="password" autocomplete="new-password" minlength="12" required></label>
+  <form class="addform" id="pwForm" novalidate><label>Nueva contraseña<input id="p1" type="password" autocomplete="new-password" minlength="12" required></label>
   <label>Repítela<input id="p2" type="password" autocomplete="new-password" minlength="12" required></label>
   <button class="btn primary" type="submit">Crear contraseña</button><span class="err" id="pErr"></span></form>
   <div id="pwOut"></div></div>
@@ -486,10 +486,12 @@ document.addEventListener("submit",async e=>{
   }
   if(e.target.id==="pwForm"){
     const a=$("#p1").value,b=$("#p2").value;
+    if(!a||!b){$("#pErr").textContent="Escribe la contraseña en los dos campos.";return}
     if(a!==b){$("#pErr").textContent="Las contraseñas no coinciden.";return}
     if(a.length<12){$("#pErr").textContent="Usa al menos 12 caracteres.";return}
     $("#pErr").textContent="Cifrando…";
-    const blob=await cifrarAcceso(a);$("#pErr").textContent="";
+    let blob;try{blob=await cifrarAcceso(a)}catch(err){$("#pErr").textContent="No se pudo cifrar en este navegador: "+(err.message||err);return}
+    $("#pErr").textContent="";
     $("#pwOut").innerHTML=`<p class="note"><b>Último paso:</b> copia este texto y pégaselo a Claude en un chat ("activa este acceso para mi biblioteca"). Va cifrado: sin tu contraseña no sirve para nada. No escribas la contraseña en el chat.</p>
       <textarea id="accesoTxt" readonly style="min-height:90px;font-family:var(--mono);font-size:.72rem">${esc(JSON.stringify(blob))}</textarea>
       <button class="btn" id="copyAcceso" type="button">Copiar</button>`;
