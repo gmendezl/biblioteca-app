@@ -129,6 +129,10 @@ img{max-width:100%}
 .setup{margin-top:28px;max-width:640px;display:grid;gap:14px}
 .setup ol{margin:0;padding-left:1.2em;display:grid;gap:6px}
 .err{color:var(--signal);font-size:.88rem}
+.cover img{object-position:center top;z-index:0}
+.cover.has-img::before{display:none}
+.cover.has-img::after{content:"";position:absolute;inset:0;z-index:1;background:linear-gradient(180deg,rgba(10,14,25,.55) 0%,rgba(10,14,25,0) 32%,rgba(10,14,25,0) 62%,rgba(10,14,25,.7) 100%)}
+.cover.has-img .kind,.cover.has-img .src{z-index:2;text-shadow:0 1px 2px rgba(0,0,0,.5)}
 </style>
 </head>
 <body>
@@ -271,7 +275,7 @@ function cover(it){
   const t=TYPES[it.type]?it.type:"otro";
   const imgPath=it.portada||(it.type==="imagen"?it.archivo:null);
   const img=imgPath?`<img alt="" data-img="${esc(imgPath)}"${imgCache[imgPath]?` src="${imgCache[imgPath]}"`:""}>`:"";
-  return `<div class="cover" style="--c:var(--c-${t});--pat:${PATS[hash(it.title)%PATS.length]}">${img}
+  return `<div class="cover${img?" has-img":""}" style="--c:var(--c-${t});--pat:${PATS[hash(it.title)%PATS.length]}">${img}
     <div class="kind"><span>${esc(TYPES[t])}</span><span>${esc(it.lang||"")}</span></div>
     ${img?"":`<div class="glyph">${esc(glyph(it))}</div>`}
     <div class="src">${esc(it.source||host(it.url)||"")}</div></div>`;
