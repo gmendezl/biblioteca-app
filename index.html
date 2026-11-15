@@ -260,6 +260,7 @@ function age(iso){const d=(Date.now()-new Date(iso))/864e5;if(!(d>=0))return "";
 let toastT;function toast(m){const t=$("#toast");t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,3500)}
 function flash(m){$("#statusLine").textContent=m}
 const items=()=>data.fichas;
+const enAnalisis=f=>f.analizado===false&&(f.intentos||0)<3;
 const byId=id=>data.fichas.find(f=>f.id===id);
 
 /* ---------- Render ---------- */
@@ -292,16 +293,17 @@ function render(){
   const tags=Object.keys(tc).sort((a,b)=>tc[b]-tc[a]).slice(0,30);
   if(st.tag&&!tags.includes(st.tag))st.tag=null;
   $("#tags").innerHTML=tags.map(t=>`<button class="chip" data-tag="${esc(t)}" aria-pressed="${t===st.tag}">#${esc(t)} <span>${tc[t]}</span></button>`).join("");
-  const sinAnalizar=all.filter(i=>i.analizado===false).length;
-  const pn=$("#pendingNote");pn.hidden=!sinAnalizar;
-  pn.innerHTML=sinAnalizar?`${sinAnalizar} ${sinAnalizar===1?"ficha guardada sin analizar":"fichas guardadas sin analizar"}. Cuando quieras, dile a Claude <code>analiza lo pendiente de mi biblioteca</code> y les agrega resumen y etiquetas.`:"";
+  const enCurso=all.filter(enAnalisis).length,fallidas=all.filter(i=>i.analizado===false&&!enAnalisis(i)).length;
+  const pn=$("#pendingNote");pn.hidden=!(enCurso||fallidas);
+  pn.innerHTML=[enCurso?`Analizando ${enCurso} ${enCurso===1?"ficha":"fichas"} con IA; aparecen completas en 1 o 2 minutos.`:"",
+    fallidas?`${fallidas} ${fallidas===1?"ficha no se pudo analizar":"fichas no se pudieron analizar"} (ábrela para ver por qué).`:""].filter(Boolean).join(" ");
   const oldest=all.filter(i=>i.status!=="revisado").sort((a,b)=>String(a.addedAt).localeCompare(String(b.addedAt)))[0];
   const sg=$("#suggest");
   if(oldest&&pend>2){sg.hidden=false;sg.innerHTML=`<span>Lleva más tiempo esperando: <strong>${esc(oldest.title)}</strong> · guardado ${esc(age(oldest.addedAt))}</span><button class="btn" data-open="${esc(oldest.id)}">Revisarlo ahora</button>`}else sg.hidden=true;
   const list=filtered();
   $("#grid").innerHTML=list.map(it=>`<button class="card" data-open="${esc(it.id)}">${cover(it)}
     <div class="body"><h3>${esc(it.title)}</h3>${it.summary?`<p>${esc(it.summary)}</p>`:""}
-    <div class="meta">${it.status==="revisado"?'<span class="pill done">revisado</span>':'<span class="pill pend">por revisar</span>'}${it.analizado===false?'<span class="pill todo">sin analizar</span>':""}${it.favorite?'<span class="star">★</span>':""}<span>${esc(age(it.addedAt))}</span>${it.area?`<span>· ${esc(it.area)}</span>`:""}</div></div></button>`).join("");
+    <div class="meta">${it.status==="revisado"?'<span class="pill done">revisado</span>':'<span class="pill pend">por revisar</span>'}${it.analizado===false?`<span class="pill todo">${enAnalisis(it)?"analizando…":"sin analizar"}</span>`:""}${it.favorite?'<span class="star">★</span>':""}<span>${esc(age(it.addedAt))}</span>${it.area?`<span>· ${esc(it.area)}</span>`:""}</div></div></button>`).join("");
   const em=$("#empty");
   if(list.length){em.hidden=true}else{em.hidden=false;
     em.innerHTML=all.length?`<h2>${st.status==="pendiente"?"Nada pendiente con estos filtros":"Sin resultados"}</h2><p>Prueba otro filtro o la vista <b>Todo</b>.</p>`
@@ -320,7 +322,8 @@ function renderDrawer(){
      <button class="btn" id="toggleStatus">${it.status==="revisado"?"Volver a por revisar":"Marcar como revisado"}</button>
      <button class="btn" id="toggleFav" aria-pressed="${!!it.favorite}">${it.favorite?"★ Favorito":"☆ Favorito"}</button>
    </div>
-   ${it.analizado===false?`<p class="note">Esta ficha aún no está analizada. Pídele a Claude <b>analiza lo pendiente de mi biblioteca</b>.</p>`:""}
+   ${it.analizado===false?(enAnalisis(it)?`<p class="note">Analizándose con IA. En 1 o 2 minutos aparecen el resumen y las etiquetas.</p>`:`<p class="note err">No se pudo analizar: ${esc(it.analisisError||"error desconocido")}</p>`):""}
+   ${it.lectura==="solo-enlace"?`<p class="note">La IA no pudo leer esta página (pide cuenta o está protegida), así que el resumen se basa solo en el enlace.</p>`:""}
    ${it.summary?`<div><h4>De qué se trata</h4><p class="sum">${esc(it.summary)}</p></div>`:""}
    <div><h4>Por qué lo guardé</h4><input id="why" class="why-in" value="${esc(it.why||"")}" placeholder="Opcional" style="width:100%;font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink)"></div>
    <dl class="kv">
@@ -375,7 +378,7 @@ function openAdd(){
   d.innerHTML=`<button class="close" id="closeBtn" aria-label="Cerrar">✕</button><h2>Añadir</h2>
    <div class="addzone" id="pickBtn">Arrastra aquí PDFs, Word o imágenes<br>o <b>haz clic para elegir archivos</b></div>
    <form class="addform" id="linkForm"><label>O pega un enlace<input id="aUrl" type="url" placeholder="https://…" required></label><button class="btn primary" type="submit">Guardar enlace</button></form>
-   <p class="note">Se guarda al instante en tu repositorio de GitHub. El resumen y las etiquetas los completa Claude cuando le pidas analizar lo pendiente.</p>`;
+   <p class="note">Se guarda al instante en tu repositorio de GitHub. En 1 o 2 minutos la IA le agrega título, resumen y etiquetas.</p>`;
 }
 
 /* ---------- Conexión ---------- */
@@ -456,6 +459,11 @@ document.addEventListener("paste",e=>{
   try{await loadData();flash("");render()}
   catch(e){flash(e.status===401?"El token ya no es válido. Ábrelo en ⚙︎ y pon uno nuevo.":"No se pudo cargar desde GitHub: "+e.message);showSetup()}
 })();
+setInterval(async()=>{
+  const ae=document.activeElement&&document.activeElement.id;
+  if(!ready()||busy||ae==="notes"||ae==="why"||document.visibilityState!=="visible"||!items().some(enAnalisis))return;
+  try{await loadData();render()}catch(e){}
+},20000);
 document.addEventListener("visibilitychange",async()=>{if(document.visibilityState==="visible"&&ready()&&!openId&&!busy){try{await loadData();render()}catch(e){}}});
 </script>
 </body>
