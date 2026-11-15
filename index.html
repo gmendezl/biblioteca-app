@@ -1,0 +1,462 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Biblioteca de Gastón</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: estante de fichas — barra de filtros fija arriba, grilla de portadas generadas, ficha lateral al abrir */
+:root{
+  --bg:#eef1f5; --surface:#ffffff; --ink:#16213a; --muted:#5b6680; --line:#d5dbe6;
+  --accent:#1f4fd1; --signal:#d8342b; --ok:#1d7a52;
+  --display:"Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --body:"Atkinson Hyperlegible", system-ui, -apple-system, sans-serif;
+  --mono:"JetBrains Mono", ui-monospace, Menlo, monospace;
+  --shadow:0 1px 2px rgba(22,33,58,.06), 0 6px 18px rgba(22,33,58,.07);
+  --c-web:#2c5ad8; --c-pdf:#c2412d; --c-video:#7a3bc9; --c-curso:#0f7c6c; --c-articulo:#2f6f9f;
+  --c-herramienta:#b7791f; --c-libro:#8a3256; --c-podcast:#4a5a14; --c-imagen:#c0457c; --c-otro:#4b5670;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f1420; --surface:#171e2e; --ink:#e6eaf3; --muted:#9aa5bd; --line:#2a3348;
+  --accent:#7ea2ff; --signal:#ff6b5e; --ok:#4cc38a; --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 22px rgba(0,0,0,.35);
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1420; --surface:#171e2e; --ink:#e6eaf3; --muted:#9aa5bd; --line:#2a3348;
+  --accent:#7ea2ff; --signal:#ff6b5e; --ok:#4cc38a; --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 22px rgba(0,0,0,.35);
+  color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:16px/1.5 var(--body);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 48px}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.wrap{max-width:1240px;margin:0 auto}
+header.top{padding-block:28px 12px;display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px}
+h1{font:800 clamp(2rem,4.5vw,3.1rem)/1 var(--display);letter-spacing:-.02em;margin:0;text-wrap:balance}
+h1 .dot{color:var(--signal)}
+.lede{color:var(--muted);margin:.4rem 0 0;max-width:60ch}
+.counts{display:flex;gap:18px;font-family:var(--mono);font-size:.8rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.counts b{display:block;font:700 1.6rem/1 var(--display);color:var(--ink)}
+.counts .pend b{color:var(--signal)}
+
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:12px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:10px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.search{flex:1 1 260px;min-width:0;position:relative}
+.search input{width:100%;font:inherit;padding:10px 14px 10px 38px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink)}
+.search svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:16px;height:16px;stroke:var(--muted)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface)}
+.seg button{font:600 .85rem var(--body);border:0;background:none;color:var(--muted);padding:9px 12px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+select,.btn{font:inherit;font-size:.9rem;padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);cursor:pointer}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:700}
+:root[data-theme="dark"] .btn.primary{color:#0f1420}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .btn.primary{color:#0f1420}}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{font:400 .78rem var(--mono);padding:4px 10px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--muted);cursor:pointer}
+.chip[aria-pressed="true"]{border-color:var(--accent);color:var(--accent);font-weight:600}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,.card:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.suggest{margin-top:18px;display:flex;gap:14px;align-items:center;flex-wrap:wrap;padding:14px 16px;border:1px dashed var(--line);border-radius:12px;color:var(--muted);font-size:.92rem}
+.suggest strong{color:var(--ink)}
+.suggest button{margin-left:auto}
+
+.grid{margin-top:20px;display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:18px}
+.card{background:var(--surface);border-radius:12px;box-shadow:var(--shadow);overflow:hidden;cursor:pointer;display:flex;flex-direction:column;border:0;padding:0;text-align:left;color:inherit;font:inherit;transition:transform .15s ease}
+.card:hover{transform:translateY(-2px)}
+.cover{--c:var(--c-otro);position:relative;aspect-ratio:16/10;max-width:100%;background:var(--c);color:#fff;padding:12px 14px;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden}
+.cover::before{content:"";position:absolute;inset:0;background:var(--pat);opacity:.22}
+.cover > *{position:relative}
+.cover .kind{font:600 .7rem var(--mono);letter-spacing:.08em;text-transform:uppercase;display:flex;justify-content:space-between;gap:8px}
+.cover .glyph{font:800 3.4rem/0.9 var(--display);letter-spacing:-.04em;opacity:.95;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cover .src{font:400 .74rem var(--mono);opacity:.9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cover img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.card .body{padding:12px 14px 14px;display:flex;flex-direction:column;gap:6px;flex:1}
+.card h3{font:700 1.02rem/1.25 var(--display);margin:0;text-wrap:balance}
+.card p{margin:0;color:var(--muted);font-size:.86rem;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.meta{margin-top:auto;padding-top:6px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;font:400 .72rem var(--mono);color:var(--muted)}
+.pill{padding:2px 8px;border-radius:999px;border:1px solid currentColor;font-weight:600}
+.pill.pend{color:var(--signal)} .pill.done{color:var(--ok)}
+.star{color:#e0a100}
+
+.empty{margin-top:40px;padding:36px 24px;border:1px dashed var(--line);border-radius:14px;text-align:center;color:var(--muted)}
+.empty h2{font:700 1.4rem var(--display);color:var(--ink);margin:0 0 6px}
+.empty code{font-family:var(--mono);font-size:.85rem;background:var(--surface);padding:2px 6px;border-radius:6px}
+
+/* ficha lateral */
+.scrim{position:fixed;inset:0;background:rgba(10,14,25,.45);z-index:20}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(520px,100%);background:var(--surface);z-index:21;overflow-y:auto;
+  padding:calc(20px + env(safe-area-inset-top,0px)) max(20px,env(safe-area-inset-right,0px)) calc(28px + env(safe-area-inset-bottom,0px)) 20px;box-shadow:-10px 0 30px rgba(0,0,0,.2);display:flex;flex-direction:column;gap:16px}
+.drawer .cover{border-radius:10px;aspect-ratio:16/8}
+.drawer h2{font:800 1.6rem/1.15 var(--display);margin:0;text-wrap:balance}
+.drawer .sum{margin:0;line-height:1.6}
+.drawer h4{font:600 .72rem var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 4px}
+.why{border-left:3px solid var(--signal);padding-left:12px;font-style:italic}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:.88rem}
+.kv dt{color:var(--muted);font-family:var(--mono);font-size:.78rem;padding-top:2px}
+.kv dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.drawer a.open{display:inline-flex;align-items:center;gap:6px;text-decoration:none}
+textarea{width:100%;min-height:110px;font:inherit;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);resize:vertical}
+.saved{font:400 .75rem var(--mono);color:var(--ok)}
+.close{position:absolute;top:calc(12px + env(safe-area-inset-top,0px));right:max(12px,env(safe-area-inset-right,0px));z-index:2;background:rgba(0,0,0,.35);color:#fff;border:0;border-radius:999px;width:34px;height:34px;font-size:1.1rem;cursor:pointer}
+.danger{color:var(--signal);border-color:var(--signal)}
+.confirm{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:.9rem}
+
+/* formulario manual */
+.addform{display:grid;gap:10px}
+.addform label{display:grid;gap:4px;font:600 .75rem var(--mono);color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.addform input,.addform select{font:inherit;text-transform:none;letter-spacing:0;font-weight:400;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink)}
+.note{font-size:.85rem;color:var(--muted)}
+.status-line{font:400 .78rem var(--mono);color:var(--muted);margin-top:10px}
+@media (max-width:560px){.counts{gap:12px}.counts b{font-size:1.3rem}.suggest button{margin-left:0}}
+@media (prefers-reduced-motion: reduce){.card{transition:none}.card:hover{transform:none}}
+</style>
+<style>
+html,body{margin:0}
+img{max-width:100%}
+[hidden]{display:none!important}
+.topbtns{display:flex;gap:8px;align-items:center}
+.iconbtn{font:inherit;font-size:.85rem;padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--muted);cursor:pointer}
+.pill.todo{color:var(--accent)}
+.dropzone{position:fixed;inset:0;z-index:30;background:color-mix(in srgb,var(--accent) 18%,transparent);border:3px dashed var(--accent);display:flex;align-items:center;justify-content:center;font:800 1.6rem var(--display);color:var(--accent);pointer-events:none}
+.dropzone span{background:var(--surface);padding:18px 26px;border-radius:14px;box-shadow:var(--shadow)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));z-index:40;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:.9rem;max-width:calc(100% - 32px);box-shadow:var(--shadow)}
+.addzone{border:2px dashed var(--line);border-radius:12px;padding:22px;text-align:center;color:var(--muted);cursor:pointer}
+.addzone:hover{border-color:var(--accent);color:var(--accent)}
+.queue{display:grid;gap:6px;font:400 .8rem var(--mono);color:var(--muted)}
+.pending-note{margin-top:14px;font-size:.88rem;color:var(--muted)}
+.pending-note code{font-family:var(--mono);background:var(--surface);padding:2px 6px;border-radius:6px}
+.setup{margin-top:28px;max-width:640px;display:grid;gap:14px}
+.setup ol{margin:0;padding-left:1.2em;display:grid;gap:6px}
+.err{color:var(--signal);font-size:.88rem}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Biblioteca<span class="dot">.</span></h1>
+      <p class="lede">Todo lo que alguna vez me llamó la atención, guardado para volver a mirarlo con calma. Arrastra un archivo o pega un enlace en cualquier parte de la página.</p>
+    </div>
+    <div class="topbtns">
+      <div class="counts" aria-live="polite">
+        <div class="pend"><b id="nPend">–</b>por revisar</div>
+        <div><b id="nDone">–</b>revisados</div>
+        <div><b id="nAll">–</b>en total</div>
+      </div>
+    </div>
+  </header>
+
+  <div class="bar" id="bar" hidden>
+    <div class="row">
+      <div class="search">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="q" type="search" placeholder="Buscar por título, tema, fuente o nota…" aria-label="Buscar">
+      </div>
+      <div class="seg" role="group" aria-label="Estado">
+        <button data-status="pendiente" aria-pressed="true">Por revisar</button>
+        <button data-status="revisado" aria-pressed="false">Revisados</button>
+        <button data-status="fav" aria-pressed="false">★</button>
+        <button data-status="all" aria-pressed="false">Todo</button>
+      </div>
+      <select id="fType" aria-label="Tipo"><option value="all">Todos los tipos</option></select>
+      <select id="fArea" aria-label="Área"><option value="all">Todas las áreas</option></select>
+      <select id="fSort" aria-label="Orden">
+        <option value="new">Más recientes</option>
+        <option value="old">Más antiguos</option>
+        <option value="az">A–Z</option>
+      </select>
+      <button class="btn primary" id="addBtn">+ Añadir</button>
+      <button class="iconbtn" id="cfgBtn" title="Conexión con GitHub">⚙︎</button>
+    </div>
+    <div class="chips" id="tags" aria-label="Etiquetas"></div>
+  </div>
+
+  <p class="pending-note" id="pendingNote" hidden></p>
+  <div class="suggest" id="suggest" hidden></div>
+  <div class="grid" id="grid"></div>
+  <div class="empty" id="empty" hidden></div>
+  <section class="setup" id="setup" hidden></section>
+  <p class="status-line" id="statusLine"></p>
+</div>
+
+<div class="scrim" id="scrim" hidden></div>
+<aside class="drawer" id="drawer" hidden aria-modal="true" role="dialog"></aside>
+<div class="dropzone" id="dropzone" hidden><span>Suelta para guardar en la biblioteca</span></div>
+<div class="toast" id="toast" hidden></div>
+<input type="file" id="filePick" multiple hidden>
+
+<script>
+/* ---------- Configuración y GitHub ---------- */
+const API="https://api.github.com";
+const MAX_MB=50;
+let cfg={owner:"",repo:"",branch:"main",token:""};
+try{Object.assign(cfg,JSON.parse(localStorage.getItem("bib.cfg")||"{}"))}catch(e){}
+function saveCfg(){try{localStorage.setItem("bib.cfg",JSON.stringify(cfg))}catch(e){}}
+const ready=()=>cfg.owner&&cfg.repo&&cfg.token;
+function H(extra){return Object.assign({Authorization:"Bearer "+cfg.token,"X-GitHub-Api-Version":"2022-11-28",Accept:"application/vnd.github+json"},extra||{})}
+const enc=p=>p.split("/").map(encodeURIComponent).join("/");
+const cURL=p=>`${API}/repos/${cfg.owner}/${cfg.repo}/contents/${enc(p)}`;
+async function gh(url,opt){const r=await fetch(url,opt);if(!r.ok){let m="";try{m=(await r.json()).message}catch(e){}const err=new Error(m||("HTTP "+r.status));err.status=r.status;throw err}return r}
+function u8ToB64(u8){let s="";for(let i=0;i<u8.length;i+=0x8000)s+=String.fromCharCode.apply(null,u8.subarray(i,i+0x8000));return btoa(s)}
+const strToB64=s=>u8ToB64(new TextEncoder().encode(s));
+function fileToB64(file){return new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>res(String(fr.result).split(",")[1]);fr.onerror=()=>rej(fr.error);fr.readAsDataURL(file)})}
+
+let data={formato:1,fichas:[]},sha=null;
+async function loadData(){
+  const t="&_="+Date.now();
+  const meta=await (await gh(cURL("fichas.json")+"?ref="+encodeURIComponent(cfg.branch)+t,{headers:H(),cache:"no-store"})).json();
+  const raw=await (await gh(cURL("fichas.json")+"?ref="+encodeURIComponent(cfg.branch)+t,{headers:H({Accept:"application/vnd.github.raw+json"}),cache:"no-store"})).text();
+  sha=meta.sha; data=JSON.parse(raw); if(!Array.isArray(data.fichas))data.fichas=[];
+}
+async function putFile(path,b64,message,fileSha){
+  const body={message,content:b64,branch:cfg.branch};if(fileSha)body.sha=fileSha;
+  return (await gh(cURL(path),{method:"PUT",headers:H({"Content-Type":"application/json"}),body:JSON.stringify(body)})).json();
+}
+/* cambios en fichas.json: se aplican en fila, y si alguien cambió el archivo entretanto se recarga y se reintenta */
+let chain=Promise.resolve(),busy=0;
+function mutate(fn,message){
+  fn(data);render();busy++;
+  chain=chain.then(async()=>{
+    for(let i=0;i<3;i++){
+      try{const res=await putFile("fichas.json",strToB64(JSON.stringify(data,null,2)+"\n"),message,sha);sha=res.content.sha;flash("");return}
+      catch(e){if(e.status===409||e.status===422){await loadData();fn(data);render();continue}flash("No se pudo guardar en GitHub: "+e.message);return}
+    }
+    flash("No se pudo guardar: el archivo cambió varias veces seguidas. Recarga la página.");
+  }).finally(()=>{busy--});
+  return chain;
+}
+async function fetchBlob(path){
+  const r=await gh(cURL(path)+"?ref="+encodeURIComponent(cfg.branch),{headers:H({Accept:"application/vnd.github.raw+json"})});
+  return r.blob();
+}
+
+/* ---------- Utilidades ---------- */
+const TYPES={web:"Página web",pdf:"PDF",documento:"Documento",video:"Video",curso:"Curso",articulo:"Artículo",herramienta:"Herramienta",libro:"Libro",podcast:"Podcast",imagen:"Imagen",otro:"Otro"};
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const st={q:"",status:"pendiente",type:"all",area:"all",tag:null,sort:"new"};
+try{Object.assign(st,JSON.parse(localStorage.getItem("bib.filters")||"{}"));st.q=""}catch(e){}
+function saveFilters(){try{localStorage.setItem("bib.filters",JSON.stringify({status:st.status,type:st.type,area:st.area,sort:st.sort}))}catch(e){}}
+function hash(s){let h=0;for(const c of String(s))h=(h*31+c.charCodeAt(0))|0;return Math.abs(h)}
+const PATS=["repeating-linear-gradient(45deg,#fff 0 2px,transparent 2px 14px)","radial-gradient(circle at 1px 1px,#fff 1.5px,transparent 2px) 0 0/16px 16px","repeating-linear-gradient(0deg,#fff 0 1px,transparent 1px 12px),repeating-linear-gradient(90deg,#fff 0 1px,transparent 1px 12px)","repeating-radial-gradient(circle at 100% 100%,#fff 0 2px,transparent 2px 18px)","repeating-linear-gradient(-30deg,#fff 0 6px,transparent 6px 22px)"];
+function host(u){try{return new URL(u).hostname.replace(/^www\./,"")}catch(e){return ""}}
+function slug(s){return String(s).normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,60)||"item"}
+const today=()=>new Date().toISOString().slice(0,10);
+function glyph(it){const w=(it.source||host(it.url)||it.title||"?").replace(/[^\p{L}\p{N} ]/gu,"").trim().split(/\s+/);return ((w.length>1?w.slice(0,2).map(x=>x[0]).join(""):(w[0]||"?").slice(0,3))).toUpperCase()}
+const imgCache={};
+function cover(it){
+  const t=TYPES[it.type]?it.type:"otro";
+  const imgPath=it.portada||(it.type==="imagen"?it.archivo:null);
+  const img=imgPath?`<img alt="" data-img="${esc(imgPath)}"${imgCache[imgPath]?` src="${imgCache[imgPath]}"`:""}>`:"";
+  return `<div class="cover" style="--c:var(--c-${t});--pat:${PATS[hash(it.title)%PATS.length]}">${img}
+    <div class="kind"><span>${esc(TYPES[t])}</span><span>${esc(it.lang||"")}</span></div>
+    ${img?"":`<div class="glyph">${esc(glyph(it))}</div>`}
+    <div class="src">${esc(it.source||host(it.url)||"")}</div></div>`;
+}
+function hydrateImages(){document.querySelectorAll("img[data-img]:not([src])").forEach(async im=>{const p=im.dataset.img;try{if(!imgCache[p])imgCache[p]=URL.createObjectURL(await fetchBlob(p));im.src=imgCache[p]}catch(e){}})}
+function fmtDate(iso){if(!iso)return "";const d=new Date(iso);return isNaN(d)?"":d.toLocaleDateString("es-CL",{day:"numeric",month:"short",year:"numeric"})}
+function age(iso){const d=(Date.now()-new Date(iso))/864e5;if(!(d>=0))return "";if(d<1)return "hoy";if(d<2)return "ayer";if(d<30)return `hace ${Math.floor(d)} días`;if(d<365)return `hace ${Math.floor(d/30)} meses`;return `hace ${Math.floor(d/365)} años`}
+let toastT;function toast(m){const t=$("#toast");t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,3500)}
+function flash(m){$("#statusLine").textContent=m}
+const items=()=>data.fichas;
+const byId=id=>data.fichas.find(f=>f.id===id);
+
+/* ---------- Render ---------- */
+let openId=null,confirmDel=false;
+function filtered(){
+  const q=st.q.trim().toLowerCase();
+  const r=items().filter(it=>{
+    if(st.status==="pendiente"&&it.status==="revisado")return false;
+    if(st.status==="revisado"&&it.status!=="revisado")return false;
+    if(st.status==="fav"&&!it.favorite)return false;
+    if(st.type!=="all"&&it.type!==st.type)return false;
+    if(st.area!=="all"&&it.area!==st.area)return false;
+    if(st.tag&&!(it.tags||[]).includes(st.tag))return false;
+    if(q){const hay=[it.title,it.summary,it.why,it.source,it.notes,it.area,(it.tags||[]).join(" "),it.url,it.archivo].join(" ").toLowerCase();if(!q.split(/\s+/).every(w=>hay.includes(w)))return false}
+    return true});
+  const by={new:(a,b)=>String(b.addedAt).localeCompare(String(a.addedAt)),old:(a,b)=>String(a.addedAt).localeCompare(String(b.addedAt)),az:(a,b)=>String(a.title).localeCompare(String(b.title),"es")};
+  return r.sort(by[st.sort]||by.new);
+}
+function fillSelect(sel,values,labeler,cur){const keep=sel.options[0].outerHTML;sel.innerHTML=keep+values.map(v=>`<option value="${esc(v)}">${esc(labeler(v))}</option>`).join("");sel.value=values.includes(cur)?cur:"all"}
+function render(){
+  if(!ready()){showSetup();return}
+  $("#setup").hidden=true;$("#bar").hidden=false;
+  const all=items(),pend=all.filter(i=>i.status!=="revisado").length;
+  $("#nPend").textContent=pend;$("#nDone").textContent=all.length-pend;$("#nAll").textContent=all.length;
+  document.querySelectorAll(".seg button").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.status===st.status)));
+  fillSelect($("#fType"),[...new Set(all.map(i=>i.type).filter(Boolean))].sort(),v=>TYPES[v]||v,st.type);
+  fillSelect($("#fArea"),[...new Set(all.map(i=>i.area).filter(Boolean))].sort(),v=>v,st.area);
+  $("#fSort").value=st.sort;
+  const tc={};all.forEach(i=>(i.tags||[]).forEach(t=>tc[t]=(tc[t]||0)+1));
+  const tags=Object.keys(tc).sort((a,b)=>tc[b]-tc[a]).slice(0,30);
+  if(st.tag&&!tags.includes(st.tag))st.tag=null;
+  $("#tags").innerHTML=tags.map(t=>`<button class="chip" data-tag="${esc(t)}" aria-pressed="${t===st.tag}">#${esc(t)} <span>${tc[t]}</span></button>`).join("");
+  const sinAnalizar=all.filter(i=>i.analizado===false).length;
+  const pn=$("#pendingNote");pn.hidden=!sinAnalizar;
+  pn.innerHTML=sinAnalizar?`${sinAnalizar} ${sinAnalizar===1?"ficha guardada sin analizar":"fichas guardadas sin analizar"}. Cuando quieras, dile a Claude <code>analiza lo pendiente de mi biblioteca</code> y les agrega resumen y etiquetas.`:"";
+  const oldest=all.filter(i=>i.status!=="revisado").sort((a,b)=>String(a.addedAt).localeCompare(String(b.addedAt)))[0];
+  const sg=$("#suggest");
+  if(oldest&&pend>2){sg.hidden=false;sg.innerHTML=`<span>Lleva más tiempo esperando: <strong>${esc(oldest.title)}</strong> · guardado ${esc(age(oldest.addedAt))}</span><button class="btn" data-open="${esc(oldest.id)}">Revisarlo ahora</button>`}else sg.hidden=true;
+  const list=filtered();
+  $("#grid").innerHTML=list.map(it=>`<button class="card" data-open="${esc(it.id)}">${cover(it)}
+    <div class="body"><h3>${esc(it.title)}</h3>${it.summary?`<p>${esc(it.summary)}</p>`:""}
+    <div class="meta">${it.status==="revisado"?'<span class="pill done">revisado</span>':'<span class="pill pend">por revisar</span>'}${it.analizado===false?'<span class="pill todo">sin analizar</span>':""}${it.favorite?'<span class="star">★</span>':""}<span>${esc(age(it.addedAt))}</span>${it.area?`<span>· ${esc(it.area)}</span>`:""}</div></div></button>`).join("");
+  const em=$("#empty");
+  if(list.length){em.hidden=true}else{em.hidden=false;
+    em.innerHTML=all.length?`<h2>${st.status==="pendiente"?"Nada pendiente con estos filtros":"Sin resultados"}</h2><p>Prueba otro filtro o la vista <b>Todo</b>.</p>`
+      :`<h2>Tu biblioteca está vacía</h2><p>Arrastra un PDF, Word o imagen a esta página, pega un enlace, o pídeselo a Claude en un chat.</p>`}
+  hydrateImages();
+  if(openId&&openId!=="__add"&&openId!=="__cfg")renderDrawer();
+}
+function renderDrawer(){
+  if(document.activeElement&&document.activeElement.id==="notes")return;
+  const it=byId(openId),d=$("#drawer");if(!it){closeDrawer();return}
+  d.innerHTML=`<button class="close" id="closeBtn" aria-label="Cerrar">✕</button>${cover(it)}
+   <h2>${esc(it.title)}</h2>
+   <div class="actions">
+     ${it.url?`<a class="btn primary open" href="${esc(it.url)}" target="_blank" rel="noopener">Abrir enlace ↗</a>`:""}
+     ${it.archivo?`<button class="btn ${it.url?"":"primary"}" id="openFile">Abrir archivo</button><button class="btn" id="dlFile">Descargar</button>`:""}
+     <button class="btn" id="toggleStatus">${it.status==="revisado"?"Volver a por revisar":"Marcar como revisado"}</button>
+     <button class="btn" id="toggleFav" aria-pressed="${!!it.favorite}">${it.favorite?"★ Favorito":"☆ Favorito"}</button>
+   </div>
+   ${it.analizado===false?`<p class="note">Esta ficha aún no está analizada. Pídele a Claude <b>analiza lo pendiente de mi biblioteca</b>.</p>`:""}
+   ${it.summary?`<div><h4>De qué se trata</h4><p class="sum">${esc(it.summary)}</p></div>`:""}
+   <div><h4>Por qué lo guardé</h4><input id="why" class="why-in" value="${esc(it.why||"")}" placeholder="Opcional" style="width:100%;font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink)"></div>
+   <dl class="kv">
+     <dt>Tipo</dt><dd>${esc(TYPES[it.type]||it.type||"—")}</dd>
+     ${it.source?`<dt>Fuente</dt><dd>${esc(it.source)}</dd>`:""}
+     ${it.area?`<dt>Área</dt><dd>${esc(it.area)}</dd>`:""}
+     ${it.lang?`<dt>Idioma</dt><dd>${esc(it.lang)}</dd>`:""}
+     ${(it.tags||[]).length?`<dt>Etiquetas</dt><dd>${it.tags.map(t=>"#"+esc(t)).join(" ")}</dd>`:""}
+     <dt>Guardado</dt><dd>${esc(fmtDate(it.addedAt))}</dd>
+     ${it.reviewedAt?`<dt>Revisado</dt><dd>${esc(fmtDate(it.reviewedAt))}</dd>`:""}
+     ${it.url?`<dt>Enlace</dt><dd>${esc(it.url)}</dd>`:""}
+     ${it.archivo?`<dt>Archivo</dt><dd>${esc(it.archivo)}</dd>`:""}
+   </dl>
+   <div><h4>Mis notas</h4><textarea id="notes" placeholder="¿Qué saqué de esto? ¿Para qué me sirve?">${esc(it.notes||"")}</textarea><span class="saved" id="savedMsg"></span></div>
+   <div class="confirm">${confirmDel?`<span>¿Eliminar la ficha${it.archivo?" (el archivo queda en GitHub)":""}?</span><button class="btn danger" id="delYes">Sí, eliminar</button><button class="btn" id="delNo">Cancelar</button>`:`<button class="btn danger" id="delAsk">Eliminar</button>`}</div>`;
+  hydrateImages();
+}
+function openDrawer(id){if(openId!==id)confirmDel=false;openId=id;$("#scrim").hidden=false;$("#drawer").hidden=false;renderDrawer();$("#drawer").scrollTop=0}
+function closeDrawer(){openId=null;confirmDel=false;$("#scrim").hidden=true;$("#drawer").hidden=true}
+function setField(id,patch,msg){mutate(d=>{const f=d.fichas.find(x=>x.id===id);if(f)Object.assign(f,patch)},msg)}
+
+/* ---------- Añadir ---------- */
+function extType(name,mime){const e=(name.split(".").pop()||"").toLowerCase();
+  if(e==="pdf")return "pdf";if(["doc","docx","odt","rtf","txt","md","pages"].includes(e))return "documento";
+  if(/^image\//.test(mime)||["png","jpg","jpeg","gif","webp","heic","svg"].includes(e))return "imagen";
+  if(/^video\//.test(mime))return "video";if(/^audio\//.test(mime))return "podcast";if(["ppt","pptx","key"].includes(e))return "documento";return "otro"}
+function uniqueId(base){let id=base,n=2;while(byId(id))id=base+"-"+(n++);return id}
+async function addFiles(files){
+  for(const file of files){
+    if(file.size>MAX_MB*1048576){toast(`${file.name} pesa más de ${MAX_MB} MB; no se puede subir.`);continue}
+    const base=file.name.replace(/\.[^.]+$/,""),ext=(file.name.match(/\.[^.]+$/)||[""])[0].toLowerCase();
+    const id=uniqueId(today()+"-"+slug(base)),path=`archivos/${id}${ext}`;
+    toast(`Subiendo ${file.name}…`);
+    try{
+      await putFile(path,await fileToB64(file),`Añade archivo: ${file.name}`);
+      await mutate(d=>{if(!d.fichas.find(f=>f.id===id))d.fichas.push({id,title:base.replace(/[_-]+/g," ").trim(),url:null,archivo:path,type:extType(file.name,file.type),source:null,lang:null,area:null,tags:[],summary:null,why:null,status:"pendiente",favorite:false,analizado:false,addedAt:new Date().toISOString(),addedBy:"manual"})},`Añade ficha: ${file.name}`);
+      toast(`${file.name} guardado`);
+    }catch(e){toast(`No se pudo subir ${file.name}: ${e.message}`)}
+  }
+}
+function cleanUrl(u){try{const x=new URL(u);[...x.searchParams.keys()].forEach(k=>{if(/^(utm_|fbclid|gclid|mc_|sfmc|testind|igshid|si$)/i.test(k))x.searchParams.delete(k)});return x.toString()}catch(e){return u}}
+function addLink(raw){
+  const url=cleanUrl(raw.trim());
+  if(items().some(f=>f.url===url)){toast("Ese enlace ya está en la biblioteca");return}
+  const h=host(url),last=decodeURIComponent((new URL(url).pathname.split("/").filter(Boolean).pop()||"")).replace(/[-_]+/g," ");
+  const id=uniqueId(today()+"-"+slug(h+"-"+last));
+  mutate(d=>d.fichas.push({id,title:last?last.charAt(0).toUpperCase()+last.slice(1):h,url,archivo:null,type:/youtube|youtu\.be|vimeo/.test(h)?"video":"web",source:h,lang:null,area:null,tags:[],summary:null,why:null,status:"pendiente",favorite:false,analizado:false,addedAt:new Date().toISOString(),addedBy:"manual"}),`Añade enlace: ${url}`);
+  toast("Enlace guardado");
+}
+function openAdd(){
+  openId="__add";$("#scrim").hidden=false;const d=$("#drawer");d.hidden=false;
+  d.innerHTML=`<button class="close" id="closeBtn" aria-label="Cerrar">✕</button><h2>Añadir</h2>
+   <div class="addzone" id="pickBtn">Arrastra aquí PDFs, Word o imágenes<br>o <b>haz clic para elegir archivos</b></div>
+   <form class="addform" id="linkForm"><label>O pega un enlace<input id="aUrl" type="url" placeholder="https://…" required></label><button class="btn primary" type="submit">Guardar enlace</button></form>
+   <p class="note">Se guarda al instante en tu repositorio de GitHub. El resumen y las etiquetas los completa Claude cuando le pidas analizar lo pendiente.</p>`;
+}
+
+/* ---------- Conexión ---------- */
+function cfgForm(){return `<form class="addform" id="cfgForm">
+   <label>Usuario de GitHub<input id="cOwner" value="${esc(cfg.owner)}" placeholder="gmendezl" required></label>
+   <label>Repositorio de datos<input id="cRepo" value="${esc(cfg.repo)}" placeholder="biblioteca-datos" required></label>
+   <label>Rama<input id="cBranch" value="${esc(cfg.branch||"main")}" required></label>
+   <label>Token personal de GitHub<input id="cToken" type="password" value="${esc(cfg.token)}" placeholder="github_pat_…" required></label>
+   <button class="btn primary" type="submit">Conectar</button><span class="err" id="cfgErr"></span></form>
+   <p class="note">El token se guarda solo en este navegador. Créalo en GitHub → Settings → Developer settings → Fine-grained tokens, con acceso únicamente al repositorio de datos y permiso <b>Contents: Read and write</b>.</p>`}
+function showSetup(){$("#bar").hidden=true;$("#grid").innerHTML="";$("#empty").hidden=true;$("#suggest").hidden=true;$("#pendingNote").hidden=true;
+  const s=$("#setup");s.hidden=false;s.innerHTML=`<h2 style="font:800 1.5rem var(--display);margin:0">Conecta tu biblioteca</h2><p class="note">Tus fichas y archivos viven en tu repositorio de GitHub. En cada computador o celular nuevo se conecta una vez.</p>${cfgForm()}`}
+function openCfg(){openId="__cfg";$("#scrim").hidden=false;const d=$("#drawer");d.hidden=false;d.innerHTML=`<button class="close" id="closeBtn" aria-label="Cerrar">✕</button><h2>Conexión con GitHub</h2>${cfgForm()}<button class="btn danger" id="logout">Desconectar este navegador</button>`}
+
+/* ---------- Eventos ---------- */
+document.addEventListener("click",async e=>{
+  const o=e.target.closest("[data-open]");if(o){openDrawer(o.dataset.open);return}
+  const s=e.target.closest("[data-status]");if(s){st.status=s.dataset.status;saveFilters();render();return}
+  const t=e.target.closest("[data-tag]");if(t){st.tag=st.tag===t.dataset.tag?null:t.dataset.tag;render();return}
+  const id=e.target.id;
+  if(id==="scrim"||id==="closeBtn"){closeDrawer();return}
+  if(id==="addBtn")return openAdd();
+  if(id==="cfgBtn")return openCfg();
+  if(id==="pickBtn"||e.target.closest("#pickBtn"))return $("#filePick").click();
+  if(id==="logout"){cfg.token="";saveCfg();closeDrawer();data={fichas:[]};render();return}
+  const it=byId(openId);if(!it)return;
+  if(id==="toggleStatus"){const done=it.status!=="revisado";setField(it.id,done?{status:"revisado",reviewedAt:new Date().toISOString()}:{status:"pendiente",reviewedAt:null},(done?"Revisado: ":"Por revisar: ")+it.title)}
+  if(id==="toggleFav")setField(it.id,{favorite:!it.favorite},"Favorito: "+it.title);
+  if(id==="delAsk"){confirmDel=true;renderDrawer()}
+  if(id==="delNo"){confirmDel=false;renderDrawer()}
+  if(id==="delYes"){const fid=it.id;closeDrawer();mutate(d=>{d.fichas=d.fichas.filter(f=>f.id!==fid)},"Elimina ficha: "+it.title)}
+  if(id==="openFile"||id==="dlFile"){
+    const w=id==="openFile"?window.open("about:blank","_blank"):null;
+    try{const blob=await fetchBlob(it.archivo);const url=URL.createObjectURL(blob);
+      if(w){w.location.href=url}else{const a=document.createElement("a");a.href=url;a.download=it.archivo.split("/").pop();document.body.appendChild(a);a.click();a.remove()}}
+    catch(err){if(w)w.close();toast("No se pudo abrir el archivo: "+err.message)}
+  }
+});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("#drawer").hidden)closeDrawer()});
+let notesT,whyT;
+document.addEventListener("input",e=>{
+  if(e.target.id==="q"){st.q=e.target.value;render();return}
+  const fid=openId;
+  if(e.target.id==="notes"){const v=e.target.value;$("#savedMsg").textContent="";clearTimeout(notesT);notesT=setTimeout(async()=>{await mutate(d=>{const f=d.fichas.find(x=>x.id===fid);if(f)f.notes=v},"Notas: "+(byId(fid)||{}).title);const m=$("#savedMsg");if(m)m.textContent="Guardado en GitHub"},1500)}
+  if(e.target.id==="why"){const v=e.target.value;clearTimeout(whyT);whyT=setTimeout(()=>mutate(d=>{const f=d.fichas.find(x=>x.id===fid);if(f)f.why=v||null},"Motivo: "+(byId(fid)||{}).title),1500)}
+});
+$("#fType").addEventListener("change",e=>{st.type=e.target.value;saveFilters();render()});
+$("#fArea").addEventListener("change",e=>{st.area=e.target.value;saveFilters();render()});
+$("#fSort").addEventListener("change",e=>{st.sort=e.target.value;saveFilters();render()});
+$("#filePick").addEventListener("change",e=>{const f=[...e.target.files];e.target.value="";closeDrawer();addFiles(f)});
+document.addEventListener("submit",async e=>{
+  e.preventDefault();
+  if(e.target.id==="linkForm"){addLink($("#aUrl").value);closeDrawer()}
+  if(e.target.id==="cfgForm"){
+    cfg={owner:$("#cOwner").value.trim(),repo:$("#cRepo").value.trim(),branch:$("#cBranch").value.trim()||"main",token:$("#cToken").value.trim()};
+    try{await loadData();saveCfg();closeDrawer();render();toast("Conectado")}
+    catch(err){$("#cfgErr").textContent=err.status===404?"No encuentro fichas.json en ese repositorio, o el token no tiene acceso a él.":err.status===401?"El token no es válido.":"No se pudo conectar: "+err.message}
+  }
+});
+/* arrastrar y pegar */
+let dragDepth=0;
+document.addEventListener("dragenter",e=>{if(!ready()||![...(e.dataTransfer?.types||[])].includes("Files"))return;dragDepth++;$("#dropzone").hidden=false});
+document.addEventListener("dragleave",()=>{dragDepth=Math.max(0,dragDepth-1);if(!dragDepth)$("#dropzone").hidden=true});
+document.addEventListener("dragover",e=>{if(ready())e.preventDefault()});
+document.addEventListener("drop",e=>{if(!ready())return;e.preventDefault();dragDepth=0;$("#dropzone").hidden=true;const f=[...(e.dataTransfer?.files||[])];if(f.length){closeDrawer();addFiles(f)}});
+document.addEventListener("paste",e=>{
+  if(!ready())return;const tag=(document.activeElement?.tagName||"");if(tag==="INPUT"||tag==="TEXTAREA")return;
+  const files=[...(e.clipboardData?.files||[])];if(files.length){e.preventDefault();addFiles(files);return}
+  const txt=(e.clipboardData?.getData("text")||"").trim();
+  const urls=txt.split(/\s+/).filter(u=>/^https?:\/\/\S+$/i.test(u));
+  if(urls.length){e.preventDefault();urls.forEach(addLink)}
+});
+
+/* ---------- Inicio ---------- */
+(async()=>{
+  if(!ready()){showSetup();return}
+  flash("Cargando desde GitHub…");
+  try{await loadData();flash("");render()}
+  catch(e){flash(e.status===401?"El token ya no es válido. Ábrelo en ⚙︎ y pon uno nuevo.":"No se pudo cargar desde GitHub: "+e.message);showSetup()}
+})();
+document.addEventListener("visibilitychange",async()=>{if(document.visibilityState==="visible"&&ready()&&!openId&&!busy){try{await loadData();render()}catch(e){}}});
+</script>
+</body>
+</html>
