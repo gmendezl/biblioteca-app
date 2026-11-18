@@ -337,14 +337,39 @@ function render(){
   hydrateImages();
   if(openId&&openId!=="__add"&&openId!=="__cfg")renderDrawer();
 }
+let editing=false;
+const AREAS=["Astrocitos","Cerebros en Positivo","Laboratorio Divergente","Clínica","Investigación","Hospital","Docencia UTA","Personal"];
+function editForm(it){
+  const opt=(v,l,cur)=>`<option value="${esc(v)}"${v===cur?" selected":""}>${esc(l)}</option>`;
+  const areas=[...new Set([...AREAS,...items().map(i=>i.area).filter(Boolean)])];
+  const fld=(l,inner)=>`<label style="display:grid;gap:4px"><h4 style="margin:0">${l}</h4>${inner}</label>`;
+  const inp=(id,v,ph="")=>`<input id="${id}" value="${esc(v||"")}" placeholder="${ph}" style="width:100%;font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink)">`;
+  const sel=(id,inner)=>`<select id="${id}" style="width:100%;font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink)">${inner}</select>`;
+  return `<button class="close" id="closeBtn" aria-label="Cerrar">✕</button>
+  <h2>Editar ficha</h2>
+  <form id="editForm" style="display:grid;gap:12px" novalidate>
+    ${fld("Título",inp("eTitle",it.title))}
+    ${fld("De qué se trata",`<textarea id="eSum" style="min-height:140px">${esc(it.summary||"")}</textarea>`)}
+    ${fld("Tipo",sel("eType",Object.entries(TYPES).map(([k,v])=>opt(k,v,it.type)).join("")))}
+    ${fld("Área",sel("eArea",opt("","Sin área",it.area||"")+areas.map(a=>opt(a,a,it.area)).join("")))}
+    ${fld("Etiquetas (separadas por coma)",inp("eTags",(it.tags||[]).join(", "),"tdah, juego, familias"))}
+    ${fld("Fuente",inp("eSource",it.source,"Sitio, autor o institución"))}
+    ${fld("Idioma",inp("eLang",it.lang,"es, en…"))}
+    ${fld("Enlace",inp("eUrl",it.url,"https://…"))}
+    ${fld("Por qué lo guardé",inp("eWhy",it.why,"Opcional"))}
+    <div class="actions"><button class="btn primary" type="submit">Guardar cambios</button><button class="btn" type="button" id="editCancel">Cancelar</button></div>
+  </form>`;
+}
 function renderDrawer(){
   if(document.activeElement&&document.activeElement.id==="notes")return;
+  if(editing){if(byId(openId))return;editing=false}
   const it=byId(openId),d=$("#drawer");if(!it){closeDrawer();return}
   d.innerHTML=`<button class="close" id="closeBtn" aria-label="Cerrar">✕</button>${cover(it)}
    <h2>${esc(it.title)}</h2>
    <div class="actions">
      ${it.url?`<a class="btn primary open" href="${esc(it.url)}" target="_blank" rel="noopener">Abrir enlace ↗</a>`:""}
      ${it.archivo?`<button class="btn ${it.url?"":"primary"}" id="openFile">Abrir archivo</button><button class="btn" id="dlFile">Descargar</button>`:""}
+     <button class="btn" id="editBtn">✎ Editar</button>
      <button class="btn" id="toggleStatus">${it.status==="revisado"?"Volver a por revisar":"Marcar como revisado"}</button>
      <button class="btn" id="toggleFav" aria-pressed="${!!it.favorite}">${it.favorite?"★ Favorito":"☆ Favorito"}</button>
    </div>
@@ -367,8 +392,8 @@ function renderDrawer(){
    <div class="confirm">${confirmDel?`<span>¿Eliminar la ficha${it.archivo?" (el archivo queda en GitHub)":""}?</span><button class="btn danger" id="delYes">Sí, eliminar</button><button class="btn" id="delNo">Cancelar</button>`:`<button class="btn danger" id="delAsk">Eliminar</button>`}</div>`;
   hydrateImages();
 }
-function openDrawer(id){if(openId!==id)confirmDel=false;openId=id;$("#scrim").hidden=false;$("#drawer").hidden=false;renderDrawer();$("#drawer").scrollTop=0}
-function closeDrawer(){openId=null;confirmDel=false;$("#scrim").hidden=true;$("#drawer").hidden=true}
+function openDrawer(id){if(openId!==id){confirmDel=false;editing=false}openId=id;$("#scrim").hidden=false;$("#drawer").hidden=false;renderDrawer();$("#drawer").scrollTop=0}
+function closeDrawer(){openId=null;confirmDel=false;editing=false;$("#scrim").hidden=true;$("#drawer").hidden=true}
 function setField(id,patch,msg){mutate(d=>{const f=d.fichas.find(x=>x.id===id);if(f)Object.assign(f,patch)},msg)}
 
 /* ---------- Añadir ---------- */
@@ -454,6 +479,8 @@ document.addEventListener("click",async e=>{
   if(id==="copyAcceso"){const t=$("#accesoTxt");try{await navigator.clipboard.writeText(t.value);toast("Copiado")}catch(err){t.select()}return}
   const it=byId(openId);if(!it)return;
   if(id==="toggleStatus"){const done=it.status!=="revisado";setField(it.id,done?{status:"revisado",reviewedAt:new Date().toISOString()}:{status:"pendiente",reviewedAt:null},(done?"Revisado: ":"Por revisar: ")+it.title)}
+  if(id==="editBtn"){editing=true;$("#drawer").innerHTML=editForm(it);$("#drawer").scrollTop=0;return}
+  if(id==="editCancel"){editing=false;renderDrawer();return}
   if(id==="toggleFav")setField(it.id,{favorite:!it.favorite},"Favorito: "+it.title);
   if(id==="delAsk"){confirmDel=true;renderDrawer()}
   if(id==="delNo"){confirmDel=false;renderDrawer()}
@@ -479,6 +506,15 @@ $("#fSort").addEventListener("change",e=>{st.sort=e.target.value;saveFilters();r
 $("#filePick").addEventListener("change",e=>{const f=[...e.target.files];e.target.value="";closeDrawer();addFiles(f)});
 document.addEventListener("submit",async e=>{
   e.preventDefault();
+  if(e.target.id==="editForm"){
+    const fid=openId,v=id=>$("#"+id).value.trim();
+    const title=v("eTitle");if(!title){toast("El título no puede quedar vacío");return}
+    const tags=[...new Set(v("eTags").split(",").map(t=>t.trim().toLowerCase().replace(/^#/,"")).filter(Boolean))];
+    const patch={title,summary:v("eSum")||null,type:v("eType"),area:v("eArea")||null,tags,source:v("eSource")||null,lang:v("eLang")||null,url:v("eUrl")||null,why:v("eWhy")||null};
+    editing=false;
+    mutate(d=>{const f=d.fichas.find(x=>x.id===fid);if(!f)return;Object.assign(f,patch);if(f.analisisError){f.analizado=true;delete f.analisisError;delete f.intentos}},"Edita: "+title);
+    toast("Cambios guardados");return;
+  }
   if(e.target.id==="linkForm"){addLink($("#aUrl").value);closeDrawer()}
   if(e.target.id==="loginForm"){
     $("#lErr").textContent="Revisando…";
